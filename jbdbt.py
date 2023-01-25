@@ -231,7 +231,7 @@ class JbdBt(DefaultDelegate, Thread, Battery):
 					connected = True
 				except BTLEException as ex:
 					logger.info('Connection failed')
-					time.sleep(10)
+					time.sleep(3)
 					continue
 
 			try:
@@ -264,6 +264,7 @@ class JbdBt(DefaultDelegate, Thread, Battery):
 			self.cellData1 = data[4:]
 			self.mutex.release()
 		elif hex_string.find('77') != -1 and (len(data) == 19 or len(data) == 3): # x04
+		#elif hex_string.find('77') != -1 and len(data) == 19: # x04
 			self.mutex.acquire()
 			self.cellData2 = data
 			self.mutex.release()
@@ -275,5 +276,29 @@ class JbdBt(DefaultDelegate, Thread, Battery):
 			self.mutex.acquire()
 			self.generalData2 = data
 			self.mutex.release()
+
+
+
+
+# Unit test
+if __name__ == "__main__":
+	#batt = JbdBt( "70:3e:97:08:00:62" )
+	batt = JbdBt( "a4:c1:37:00:25:91" )
+
+	batt.get_settings()
+
+	while True:
+		batt.refresh_data()
+
+		print("Cells " + str(batt.cell_count) )
+
+		for c in range(batt.cell_count):
+			print( str(batt.cells[c].voltage) + "v", end=" " )
+
+		print("")
+
+
+		time.sleep(5)
+
 
 
