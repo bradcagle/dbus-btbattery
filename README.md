@@ -12,30 +12,30 @@ to set one up.
 
 You need to setup some depenacies on your VenusOS first
 
-1) SSH to IP assigned to venus device\
+1) SSH to IP assigned to venus device<br/>
 
-2) Resize/Expand file system\
+2) Resize/Expand file system<br/>
 /opt/victronenergy/swupdate-scripts/resize2fs.sh
 
-3) Update opkg\
+3) Update opkg<br/>
 opkg update
 
-4) Install pip\
+4) Install pip<br/>
 opkg install python3-pip
 
-5) Install build essentials as bluepy has some C code that needs to be compiled\ 
+5) Install build essentials as bluepy has some C code that needs to be compiled<br/>
 opkg install packagegroup-core-buildessential
 
-6) Install glib-dev required by bluepy\
+6) Install glib-dev required by bluepy<br/>
 opkg install libglib-2.0-dev
 
-7) Install bluepi\
+7) Install bluepi<br/>
 pip3 install bluepy
 
-8) Install git\
+8) Install git<br/>
 opkg install git
 
-9) Clone dbus-btbattery repo\
+9) Clone dbus-btbattery repo<br/>
 git clone https://github.com/bradcagle/dbus-btbattery.git
 
 
