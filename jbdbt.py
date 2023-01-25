@@ -10,7 +10,6 @@ import binascii
 import atexit
 
 
-
 class JbdProtection(Protection):
 	def __init__(self):
 		#super(JbdProtection, self).__init__()
@@ -52,7 +51,6 @@ class JbdProtection(Protection):
 		)
 
 
-
 class JbdBt(DefaultDelegate, Thread, Battery):
 
 	def __init__(self, address):
@@ -78,7 +76,6 @@ class JbdBt(DefaultDelegate, Thread, Battery):
 
 		# Start our bluetooth thread
 		self.start()
-
 
 
 	def test_connection(self):
@@ -192,7 +189,6 @@ class JbdBt(DefaultDelegate, Thread, Battery):
 			self.to_temp(t + 1, kelvin_to_celsius(temp1 / 10))
 
 		return True
-
 
 
 	def read_cell_data(self):
