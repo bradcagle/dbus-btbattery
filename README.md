@@ -39,7 +39,7 @@ opkg install git
 git clone https://github.com/bradcagle/dbus-btbattery.git
 
 
-You can now run ./dbus-btbattery.py 70:3e:97:08:00:62
+You can now run ./dbus-btbattery.py 70:3e:97:08:00:62<br/>
 replace 70:3e:97:08:00:62 with the Bluetooth address of your BMS/Battery
 
 You can run ./scan.py to find Bluetooth devices around you
