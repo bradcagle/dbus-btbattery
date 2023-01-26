@@ -98,6 +98,12 @@ class JbdBt(DefaultDelegate, Thread, Battery):
 		return result
 
 
+	def log_settings(self):
+		# Override log_settings() to call get_settings() first
+		self.get_settings()
+		Battery.log_settings(self)
+
+
 	def to_protection_bits(self, byte_data):
 		tmp = bin(byte_data)[2:].rjust(13, zero_char)
 
