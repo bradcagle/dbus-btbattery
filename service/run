@@ -1,0 +1,3 @@
+#!/bin/sh
+exec 2>&1
+exec /opt/victronenergy/dbus-btbattery/dbus-btbattery.py 70:3e:97:08:00:62
