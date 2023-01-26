@@ -36,21 +36,21 @@ pip3 install bluepy
 opkg install git
 
 9) Clone dbus-btbattery repo<br/>
-cd /opt/victronenergy/
+cd /opt/victronenergy/<br/>
 git clone https://github.com/bradcagle/dbus-btbattery.git
 
-cd dbus-btbattery
+cd dbus-btbattery<br/>
 You can now run ./dbus-btbattery.py 70:3e:97:08:00:62<br/>
-replace 70:3e:97:08:00:62 with the Bluetooth address of your BMS/Battery
+replace 70:3e:97:08:00:62 with the Bluetooth address of your BMS/Battery<br/>
 
-You can run ./scan.py to find Bluetooth devices around you
+You can run ./scan.py to find Bluetooth devices around you<br/>
 
 ### To make dbus-btbattery startup automatically
-nano service/run 
-and replace 70:3e:97:08:00:62 with the Bluetooth address of your BMS/Battery
-Save with "Ctrl O"
-run ./installservice.sh
-reboot 
+nano service/run<br/> 
+and replace 70:3e:97:08:00:62 with the Bluetooth address of your BMS/Battery<br/>
+Save with "Ctrl O"<br/>
+run ./installservice.sh<br/>
+reboot<br/>
 
 NOTES: This driver is far from complete, so some things will probably be broken. Also only JBD BMS is currenly supported 
 
