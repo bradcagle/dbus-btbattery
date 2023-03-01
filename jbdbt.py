@@ -58,6 +58,8 @@ class JbdBtDev(DefaultDelegate, Thread):
 
 		self.cellDataCallback = None
 		self.generalDataCallback = None
+		self.cellDataP2Len = 0
+		self.generalDataP2Len = 0
 		self.address = address
 		self.interval = 5
 
@@ -114,15 +116,28 @@ class JbdBtDev(DefaultDelegate, Thread):
 		hex_string = hex_data.decode('utf-8')
 		#print(hex_string)
 
+		HEADER_LEN = 4 #[Start Code][Command][Status][Length]
+		FOOTER_LEN = 3 #[16bit Checksum][Stop Code]
+
 		# Route incoming BMS data
+
+		# Cell Data
 		if hex_string.find('dd04') != -1:
+			# Because of small MTU size, the BMS data may not be transmitted in a single packet.
+			# We use the 4th byte defined as "data len" in the BMS protocol to calculate the remaining bytes
+			# that will be transmitted in the second packet 
+			totalLen = data[3] + HEADER_LEN + FOOTER_LEN
+			self.cellDataP2Len = totalLen - len(data)
 			self.cellDataCallback(data[4:], 0)
-		elif hex_string.find('77') != -1 and (len(data) == 19 or len(data) == 3): # x04
-		#elif hex_string.find('77') != -1 and len(data) == 19: # x04
+		elif hex_string.find('77') != -1 and len(data) == self.cellDataP2Len: # Look for the stop code, and check if the len matches P2Len (i.e. the remaining bytes)
 			self.cellDataCallback(data, 1)
+
+		# General Data
 		elif hex_string.find('dd03') != -1:
+			totalLen = data[3] + HEADER_LEN + FOOTER_LEN
+			self.generalDataP2Len = totalLen - len(data)
 			self.generalDataCallback(data[4:], 0)
-		elif hex_string.find('77') != -1 and len(data) < 19 and len(data) > 3:	 # x03 len 36 for 4 temps, 32 for 3 temps, 28 for 2
+		elif hex_string.find('77') != -1 and len(data) == self.generalDataP2Len:
 			self.generalDataCallback(data, 1)
 
 
@@ -315,7 +330,8 @@ if __name__ == "__main__":
 
 
 	#batt = JbdBt( "70:3e:97:08:00:62" )
-	batt = JbdBt( "a4:c1:37:40:89:5e" )
+	#batt = JbdBt( "a4:c1:37:40:89:5e" )
+	batt = JbdBt( "a4:c1:37:00:25:91" )
 
 	batt.get_settings()
 
