@@ -52,6 +52,15 @@ Save with "Ctrl O"<br/>
 run ./installservice.sh<br/>
 reboot<br/>
 
+
+### New Virtual Battery Feature [Experimental]
+You can now add up to 4 bt battery addresses to the command line. It will connect to all batteries, and create a<br/>
+single virtual battery. NOTE for now this only works with batteries in series, I will add parallel support soon.<br/>
+
+Example of my two 12v batteries in series, the display shows a 24v battery<br/> 
+./dbus-btbattery.py 70:3e:97:08:00:62 a4:c1:37:40:89:5e<br/>
+
+
 NOTES: This driver is far from complete, so some things will probably be broken. Also only JBD BMS is currenly supported 
 
 

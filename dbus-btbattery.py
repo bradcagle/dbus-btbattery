@@ -20,6 +20,7 @@ from utils import logger
 import utils
 from battery import Battery
 from jbdbt import JbdBt
+from virtual import Virtual
 
 
 
@@ -35,14 +36,13 @@ def main():
 		poller.start()
 		return True
 
-	def get_battery(btaddr):
-		battery = JbdBt(btaddr)
-		return battery
 
 	def get_btaddr() -> str:
 		# Get the bluetooth address we need to use from the argument
 		if len(sys.argv) > 1:
-			return sys.argv[1]
+			return sys.argv[1:]
+		else:
+			return False
 
 
 	logger.info(
@@ -50,10 +50,17 @@ def main():
 	)
 
 	btaddr = get_btaddr()
-	battery: Battery = get_battery(btaddr)
+	if len(btaddr) == 2:
+		battery: Battery = Virtual( JbdBt(btaddr[0]), JbdBt(btaddr[1]) )
+	elif len(btaddr) == 3:
+		battery: Battery = Virtual( JbdBt(btaddr[0]), JbdBt(btaddr[1]), JbdBt(btaddr[2]) )
+	elif len(btaddr) == 4:
+		battery: Battery = Virtual( JbdBt(btaddr[0]), JbdBt(btaddr[1]), JbdBt(btaddr[2]), JbdBt(btaddr[3]) )
+	else:
+		battery: Battery = JbdBt(btaddr[0])
 
 	if battery is None:
-		logger.error("ERROR >>> No battery connection at " + btaddr)
+		logger.error("ERROR >>> No battery connection at " + str(btaddr))
 		sys.exit(1)
 
 	battery.log_settings()
@@ -68,7 +75,7 @@ def main():
 	helper = DbusHelper(battery)
 
 	if not helper.setup_vedbus():
-		logger.error("ERROR >>> Problem with battery " + btaddr)
+		logger.error("ERROR >>> Problem with battery " + str(btaddr))
 		sys.exit(1)
 
 	# Poll the battery at INTERVAL and run the main loop
