@@ -127,6 +127,8 @@ class JbdBtDev(DefaultDelegate, Thread):
 			# We use the 4th byte defined as "data len" in the BMS protocol to calculate the remaining bytes
 			# that will be transmitted in the second packet 
 			totalLen = data[3] + HEADER_LEN + FOOTER_LEN
+			#print("total " + str(totalLen) )
+			#print("len " + str(len(data)) )
 			self.cellDataP2Len = totalLen - len(data)
 			self.cellDataCallback(data[4:], 0)
 		elif hex_string.find('77') != -1 and len(data) == self.cellDataP2Len: # Look for the stop code, and check if the len matches P2Len (i.e. the remaining bytes)
@@ -140,6 +142,9 @@ class JbdBtDev(DefaultDelegate, Thread):
 		elif hex_string.find('77') != -1 and len(data) == self.generalDataP2Len:
 			self.generalDataCallback(data, 1)
 
+		# Hack
+		elif len(data) == 20:
+			self.cellDataCallback(data, 1)
 
 
 class JbdBt(Battery):
