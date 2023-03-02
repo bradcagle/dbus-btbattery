@@ -46,6 +46,12 @@ def main():
 	d = delegate()
 	bt.setDelegate(d)
 
+	# [Start Byte][write][clearpass reg][payload len][payload          ][checksum][stop byte]
+	# dd          5a     09             06           4a 31 42 32 44 34  fe8a      77
+	#                                                J  1  B  2  D  4
+	#
+	# Checksum = 65536 - ([reg byte] + [payload len byte] + [payload bytes])		
+
 	bt.writeCharacteristic(0x15, b'\xdd\x5a\x09\x06\x4a\x31\x42\x32\x44\x34\xfe\x8a\x77', True)
 
 	bt.waitForNotifications(10.0)
