@@ -58,8 +58,12 @@ class JbdBtDev(DefaultDelegate, Thread):
 
 		self.cellDataCallback = None
 		self.generalDataCallback = None
-		self.cellDataP2Len = 0
-		self.generalDataP2Len = 0
+		self.cellData = None
+		self.generalData = None
+		self.cellDataTotalLen = 0
+		self.generalDataTotalLen = 0
+		self.cellDataRemainingLen = 0
+		self.generalDataRemainingLen = 0
 		self.address = address
 		self.interval = 5
 
@@ -126,25 +130,32 @@ class JbdBtDev(DefaultDelegate, Thread):
 			# Because of small MTU size, the BMS data may not be transmitted in a single packet.
 			# We use the 4th byte defined as "data len" in the BMS protocol to calculate the remaining bytes
 			# that will be transmitted in the second packet 
-			totalLen = data[3] + HEADER_LEN + FOOTER_LEN
-			#print("total " + str(totalLen) )
-			#print("len " + str(len(data)) )
-			self.cellDataP2Len = totalLen - len(data)
-			self.cellDataCallback(data[4:], 0)
-		elif hex_string.find('77') != -1 and len(data) == self.cellDataP2Len: # Look for the stop code, and check if the len matches P2Len (i.e. the remaining bytes)
-			self.cellDataCallback(data, 1)
-
+			self.cellDataTotalLen = data[3] + HEADER_LEN + FOOTER_LEN
+			self.cellDataRemainingLen = self.cellDataTotalLen - len(data)
+			self.cellData = data
+		elif hex_string.find('77') != -1 and len(data) == self.cellDataRemainingLen: # Look for the stop code, and check if the len matches P2Len (i.e. the remaining bytes)
+			self.cellData = self.cellData + data
 		# General Data
 		elif hex_string.find('dd03') != -1:
-			totalLen = data[3] + HEADER_LEN + FOOTER_LEN
-			self.generalDataP2Len = totalLen - len(data)
-			self.generalDataCallback(data[4:], 0)
-		elif hex_string.find('77') != -1 and len(data) == self.generalDataP2Len:
-			self.generalDataCallback(data, 1)
+			self.generalDataTotalLen = data[3] + HEADER_LEN + FOOTER_LEN
+			self.generalDataRemainingLen = self.generalDataTotalLen - len(data)
+			self.generalData = data
+		elif hex_string.find('77') != -1 and len(data) == self.generalDataRemainingLen:
+			self.generalData = self.generalData + data
 
 		# Hack
-		elif len(data) == 20:
-			self.cellDataCallback(data, 1)
+		#elif len(data) == 20:
+		#	self.cellDataCallback(data, 1)
+
+
+		if self.cellData and len(self.cellData) == self.cellDataTotalLen:
+			self.cellDataCallback(self.cellData)
+			self.cellData = None
+
+		if self.generalData and len(self.generalData) == self.generalDataTotalLen:
+			self.generalDataCallback(self.generalData)
+			self.generalData = None
+			
 
 
 class JbdBt(Battery):
@@ -159,10 +170,8 @@ class JbdBt(Battery):
 		self.bt.setDelegate(self)
 
 		self.mutex = Lock()
-		self.generalData1 = None
-		self.generalData2 = None
-		self.cellData1 = None
-		self.cellData2 = None
+		self.generalData = None
+		self.cellData = None
 
 		self.address = address
 		self.port = "/bt" + address.replace(":", "")
@@ -244,11 +253,11 @@ class JbdBt(Battery):
 
 	def read_gen_data(self):
 		self.mutex.acquire()
-		if self.generalData1 == None or self.generalData2 == None:
+		if self.generalData == None:
 			self.mutex.release()
 			return False
 
-		gen_data = self.generalData1 + self.generalData2
+		gen_data = self.generalData[4:]
 		self.mutex.release()
 
 		if len(gen_data) < 27:
@@ -289,14 +298,12 @@ class JbdBt(Battery):
 
 	def read_cell_data(self):
 		self.mutex.acquire()
-		if self.cell_count < 8 and self.cellData2 == None:
-			self.cellData2 = bytes() #fake it
 
-		if self.cellData1 == None or self.cellData2 == None:
+		if self.cellData == None:
 			self.mutex.release()
 			return False
 
-		cell_data = self.cellData1 + self.cellData2
+		cell_data = self.cellData[4:]
 		self.mutex.release()
 
 		if len(cell_data) < self.cell_count * 2:
@@ -312,20 +319,14 @@ class JbdBt(Battery):
 
 		return True
 
-	def cellDataCB(self, data, index):
+	def cellDataCB(self, data):
 		self.mutex.acquire()
-		if index == 0:
-			self.cellData1 = data
-		else:
-			self.cellData2 = data
+		self.cellData = data
 		self.mutex.release()
 
-	def generalDataCB(self, data, index):
+	def generalDataCB(self, data):
 		self.mutex.acquire()
-		if index == 0:
-			self.generalData1 = data
-		else:
-			self.generalData2 = data
+		self.generalData = data
 		self.mutex.release()
 
 
@@ -334,9 +335,9 @@ class JbdBt(Battery):
 if __name__ == "__main__":
 
 
-	#batt = JbdBt( "70:3e:97:08:00:62" )
+	batt = JbdBt( "70:3e:97:08:00:62" )
 	#batt = JbdBt( "a4:c1:37:40:89:5e" )
-	batt = JbdBt( "a4:c1:37:00:25:91" )
+	#batt = JbdBt( "a4:c1:37:00:25:91" )
 
 	batt.get_settings()
 
