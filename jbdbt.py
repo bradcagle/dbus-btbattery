@@ -57,13 +57,15 @@ class JbdBtDev(DefaultDelegate, Thread):
 		Thread.__init__(self)
 
 		self.cellDataCallback = None
-		self.generalDataCallback = None
 		self.cellData = None
-		self.generalData = None
 		self.cellDataTotalLen = 0
-		self.generalDataTotalLen = 0
 		self.cellDataRemainingLen = 0
+
+		self.generalDataCallback = None
+		self.generalData = None
+		self.generalDataTotalLen = 0
 		self.generalDataRemainingLen = 0
+
 		self.address = address
 		self.interval = 5
 
@@ -83,7 +85,7 @@ class JbdBtDev(DefaultDelegate, Thread):
 					logger.info('Connected ' + self.address)
 					connected = True
 				except BTLEException as ex:
-					logger.info('Connection failed')
+					logger.info('Connection failed: ' + str(ex))
 					time.sleep(3)
 					continue
 
@@ -94,8 +96,11 @@ class JbdBtDev(DefaultDelegate, Thread):
 				if (time.time() - timer) > self.interval:
 					timer = time.time()
 					result = self.bt.writeCharacteristic(0x15, b'\xdd\xa5\x03\x00\xff\xfd\x77', True)	# write x03 (general info)
-					time.sleep(1) # Need time between writes?
+					#time.sleep(1) # Need time between writes?
+					while self.bt.waitForNotifications(0.5):
+						continue
 					result = self.bt.writeCharacteristic(0x15, b'\xdd\xa5\x04\x00\xff\xfc\x77', True)	# write x04 (cell voltages)
+
 
 			except BTLEDisconnectError:
 				logger.info('Disconnected')
@@ -144,9 +149,9 @@ class JbdBtDev(DefaultDelegate, Thread):
 			self.generalData = self.generalData + data
 
 		# Hack
-		#elif len(data) == 20:
-		#	self.cellDataCallback(data, 1)
-
+		elif len(data) == 20:
+			self.cellData = self.cellData + data
+			self.cellDataRemainingLen = self.cellDataRemainingLen - len(data)
 
 		if self.cellData and len(self.cellData) == self.cellDataTotalLen:
 			self.cellDataCallback(self.cellData)
