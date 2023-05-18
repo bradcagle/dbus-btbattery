@@ -47,7 +47,7 @@ class Cell:
 class Battery(ABC):
     """
     This Class is the abstract baseclass for all batteries. For each BMS this class needs to be extended
-    and the abstract methods need to be implemented. The main program in dbus-serialbattery.py will then
+    and the abstract methods need to be implemented. The main program in dbus-btbattery.py will then
     use the individual implementations as type Battery and work with it.
     """
 

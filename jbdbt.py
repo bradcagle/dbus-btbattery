@@ -8,6 +8,10 @@ import sys
 import time
 import binascii
 import atexit
+import os
+
+# 0 disabled, or set the number of seconds to detect BT hang, and reboot. 
+BT_WATCHDOG_TIMER=300
 
 
 class JbdProtection(Protection):
@@ -73,6 +77,7 @@ class JbdBtDev(DefaultDelegate, Thread):
 		self.bt = Peripheral()
 		self.bt.setDelegate(self)
 
+
 	def run(self):
 		self.running = True
 		timer = 0
@@ -93,8 +98,8 @@ class JbdBtDev(DefaultDelegate, Thread):
 				if self.bt.waitForNotifications(0.5):
 					continue
 
-				if (time.time() - timer) > self.interval:
-					timer = time.time()
+				if (time.monotonic() - timer) > self.interval:
+					timer = time.monotonic()
 					result = self.bt.writeCharacteristic(0x15, b'\xdd\xa5\x03\x00\xff\xfd\x77', True)	# write x03 (general info)
 					#time.sleep(1) # Need time between writes?
 					while self.bt.waitForNotifications(0.5):
@@ -109,6 +114,7 @@ class JbdBtDev(DefaultDelegate, Thread):
 
 
 	def connect(self):
+		self.daemon=True
 		self.start()
 
 	def stop(self):
@@ -176,7 +182,9 @@ class JbdBt(Battery):
 
 		self.mutex = Lock()
 		self.generalData = None
+		self.generalDataTS = time.monotonic()
 		self.cellData = None
+		self.cellDataTS = time.monotonic()
 
 		self.address = address
 		self.port = "/bt" + address.replace(":", "")
@@ -258,6 +266,8 @@ class JbdBt(Battery):
 
 	def read_gen_data(self):
 		self.mutex.acquire()
+		self.checkTS(self.generalDataTS)
+
 		if self.generalData == None:
 			self.mutex.release()
 			return False
@@ -303,6 +313,7 @@ class JbdBt(Battery):
 
 	def read_cell_data(self):
 		self.mutex.acquire()
+		self.checkTS(self.cellDataTS)
 
 		if self.cellData == None:
 			self.mutex.release()
@@ -327,20 +338,39 @@ class JbdBt(Battery):
 	def cellDataCB(self, data):
 		self.mutex.acquire()
 		self.cellData = data
+		self.cellDataTS = time.monotonic()
 		self.mutex.release()
 
 	def generalDataCB(self, data):
 		self.mutex.acquire()
 		self.generalData = data
+		self.generalDataTS = time.monotonic()
 		self.mutex.release()
 
+	def checkTS(self, ts):
+		elapsed = 0				
+		if ts:
+			elapsed = time.monotonic() - ts
+
+		if (int(elapsed) % 60) == 0:
+			logger.info(elapsed)
+
+		if BT_WATCHDOG_TIMER == 0:
+			return
+
+		if elapsed > BT_WATCHDOG_TIMER:
+			logger.info('Watchdog timer expired. BT chipset might be locked up. Rebooting')   
+			os.system('reboot')
 
 
 # Unit test
 if __name__ == "__main__":
 
 
-	batt = JbdBt( "70:3e:97:08:00:62" )
+	batt = JbdBt( "70:3e:97:07:e0:dd" )
+	#batt = JbdBt( "70:3e:97:07:e0:d9" )
+	#batt = JbdBt( "e0:9f:2a:fd:29:26" )
+	#batt = JbdBt( "70:3e:97:08:00:62" )
 	#batt = JbdBt( "a4:c1:37:40:89:5e" )
 	#batt = JbdBt( "a4:c1:37:00:25:91" )
 
