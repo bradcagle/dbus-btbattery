@@ -10,7 +10,7 @@ import binascii
 import atexit
 import os
 
-# 0 disabled, or set the number of seconds to detect BT hang, and reboot. 
+# 0 disabled, or set the number of seconds to detect BT hang, and reboot.
 BT_WATCHDOG_TIMER=300
 
 
@@ -64,6 +64,7 @@ class JbdBtDev(DefaultDelegate, Thread):
 		self.cellData = None
 		self.cellDataTotalLen = 0
 		self.cellDataRemainingLen = 0
+		self.last_state = "0000"
 
 		self.generalDataCallback = None
 		self.generalData = None
@@ -78,6 +79,14 @@ class JbdBtDev(DefaultDelegate, Thread):
 		self.bt.setDelegate(self)
 
 
+	def reset(self):
+		self.last_state = "0000"
+		self.cellDataTotalLen = 0
+		self.cellDataRemainingLen = 0
+		self.generalDataTotalLen = 0
+		self.generalDataRemainingLen = 0
+
+
 	def run(self):
 		self.running = True
 		timer = 0
@@ -89,20 +98,21 @@ class JbdBtDev(DefaultDelegate, Thread):
 					self.bt.connect(self.address, addrType="public")
 					logger.info('Connected ' + self.address)
 					connected = True
+					self.reset()
 				except BTLEException as ex:
 					logger.info('Connection failed: ' + str(ex))
 					time.sleep(3)
 					continue
 
 			try:
-				if self.bt.waitForNotifications(0.5):
+				if self.bt.waitForNotifications(2):
 					continue
 
 				if (time.monotonic() - timer) > self.interval:
 					timer = time.monotonic()
 					result = self.bt.writeCharacteristic(0x15, b'\xdd\xa5\x03\x00\xff\xfd\x77', True)	# write x03 (general info)
 					#time.sleep(1) # Need time between writes?
-					while self.bt.waitForNotifications(0.5):
+					while self.bt.waitForNotifications(1):
 						continue
 					result = self.bt.writeCharacteristic(0x15, b'\xdd\xa5\x04\x00\xff\xfc\x77', True)	# write x04 (cell voltages)
 
@@ -127,9 +137,14 @@ class JbdBtDev(DefaultDelegate, Thread):
 		self.generalDataCallback = func
 
 	def handleNotification(self, cHandle, data):
+		if data is None:
+			logger.info("data is None")
+			return
+
 		hex_data = binascii.hexlify(data)
-		hex_string = hex_data.decode('utf-8')
-		#print(hex_string)
+		hex_string = hex_data.decode('utf-8')		
+		#logger.info("new Hex_String(" +str(len(data))+"): " + str(hex_string))
+
 
 		HEADER_LEN = 4 #[Start Code][Command][Status][Length]
 		FOOTER_LEN = 3 #[16bit Checksum][Stop Code]
@@ -138,36 +153,40 @@ class JbdBtDev(DefaultDelegate, Thread):
 
 		# Cell Data
 		if hex_string.find('dd04') != -1:
+			self.last_state = "dd04"
 			# Because of small MTU size, the BMS data may not be transmitted in a single packet.
 			# We use the 4th byte defined as "data len" in the BMS protocol to calculate the remaining bytes
-			# that will be transmitted in the second packet 
+			# that will be transmitted in the second packet
 			self.cellDataTotalLen = data[3] + HEADER_LEN + FOOTER_LEN
 			self.cellDataRemainingLen = self.cellDataTotalLen - len(data)
+			logger.info("cellDataTotalLen: " + str(int(self.cellDataTotalLen)))
+			#logger.info("cellDataRemainingLen: " + str(int(self.cellDataRemainingLen)))
 			self.cellData = data
-		elif hex_string.find('77') != -1 and len(data) == self.cellDataRemainingLen: # Look for the stop code, and check if the len matches P2Len (i.e. the remaining bytes)
+		elif self.last_state == "dd04" and hex_string.find('dd04') == -1 and hex_string.find('dd03') == -1: 
 			self.cellData = self.cellData + data
+				
 		# General Data
 		elif hex_string.find('dd03') != -1:
+			self.last_state = "dd03"
 			self.generalDataTotalLen = data[3] + HEADER_LEN + FOOTER_LEN
 			self.generalDataRemainingLen = self.generalDataTotalLen - len(data)
+			logger.info("generalDataTotalLen: " + str(int(self.generalDataTotalLen)))
+			#logger.info("generalDataRemainingLen: " + str(int(self.generalDataRemainingLen)))
 			self.generalData = data
-		elif hex_string.find('77') != -1 and len(data) == self.generalDataRemainingLen:
-			self.generalData = self.generalData + data
+		elif self.last_state == "dd03" and hex_string.find('dd04') == -1 and hex_string.find('dd03') == -1: 
+			self.generalData = self.generalData + data			
 
-		# Hack
-		elif len(data) == 20:
-			self.cellData = self.cellData + data
-			self.cellDataRemainingLen = self.cellDataRemainingLen - len(data)
-
-		if self.cellData and len(self.cellData) == self.cellDataTotalLen:
+		if self.last_state == "dd04" and self.cellData and len(self.cellData) == self.cellDataTotalLen:			
 			self.cellDataCallback(self.cellData)
+			logger.info("cellData(" + str(len(self.cellData))+ "): " + str(binascii.hexlify(self.cellData).decode('utf-8')))
+			self.last_state == "0000"
 			self.cellData = None
 
-		if self.generalData and len(self.generalData) == self.generalDataTotalLen:
+		if self.last_state == "dd03" and self.generalData and len(self.generalData) == self.generalDataTotalLen:			
 			self.generalDataCallback(self.generalData)
+			logger.info("generalData(" + str(len(self.generalData)) + "): " + str(binascii.hexlify(self.generalData).decode('utf-8')))
+			self.last_state == "0000"
 			self.generalData = None
-			
-
 
 class JbdBt(Battery):
 	def __init__(self, address):
@@ -348,18 +367,18 @@ class JbdBt(Battery):
 		self.mutex.release()
 
 	def checkTS(self, ts):
-		elapsed = 0				
+		elapsed = 0
 		if ts:
 			elapsed = time.monotonic() - ts
 
-		if (int(elapsed) % 60) == 0:
-			logger.info(elapsed)
+		#if (int(elapsed) % 60) == 0:
+		#	logger.info(elapsed)
 
 		if BT_WATCHDOG_TIMER == 0:
 			return
 
 		if elapsed > BT_WATCHDOG_TIMER:
-			logger.info('Watchdog timer expired. BT chipset might be locked up. Rebooting')   
+			logger.info('Watchdog timer expired. BT chipset might be locked up. Rebooting')
 			os.system('reboot')
 
 
@@ -373,21 +392,14 @@ if __name__ == "__main__":
 	#batt = JbdBt( "70:3e:97:08:00:62" )
 	#batt = JbdBt( "a4:c1:37:40:89:5e" )
 	#batt = JbdBt( "a4:c1:37:00:25:91" )
-
 	batt.get_settings()
 
 	while True:
 		batt.refresh_data()
-
 		print("Cells " + str(batt.cell_count) )
-
 		for c in range(batt.cell_count):
 			print( str(batt.cells[c].voltage) + "v", end=" " )
-
 		print("")
-
-
 		time.sleep(5)
-
 
 
